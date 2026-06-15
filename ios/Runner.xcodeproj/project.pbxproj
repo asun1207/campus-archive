@@ -109,7 +109,6 @@
 				CDD28720827580C401437442 /* Pods-RunnerTests.release.xcconfig */,
 				9B165FCC35375DD5F868814E /* Pods-RunnerTests.profile.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};

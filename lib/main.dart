@@ -13,9 +13,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Firebase 초기화 (실제 실행 시 firebase_options.dart 필요)
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(const CampusArchiveApp());
 }
