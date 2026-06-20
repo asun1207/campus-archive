@@ -93,10 +93,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('마이페이지', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: const Text('마이페이지'),
         elevation: 0,
       ),
       body: user == null

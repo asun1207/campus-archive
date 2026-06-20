@@ -31,28 +31,73 @@ class CampusArchiveApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Campus Archive',
+      // 💡 여기서부터 변경됨: Minimal SaaS 디자인 시스템 전역 테마 적용
       theme: ThemeData(
-        // 메인 컬러: #4F46E5 (인디고)
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4F46E5)),
-        primaryColor: const Color(0xFF4F46E5),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF8F9FE), // 부드러운 틴트가 들어간 배경색
+        primaryColor: const Color(0xFF4F46E5),
+
+        // 전체적인 색상 위계 정의
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4F46E5),
+          background: const Color(0xFFF8F9FE),
+          surface: Colors.white,
+          onSurface: const Color(0xFF1E1B4B), // 깊은 밀도의 텍스트 컬러
+        ),
+
+        // 앱바 디자인의 SaaS 표준화 (선 없애고 배경과 투명하게 동화)
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF8F9FE),
+          elevation: 0,
+          iconTheme: IconThemeData(color: Color(0xFF1E1B4B)),
+          titleTextStyle: TextStyle(
+            color: Color(0xFF1E1B4B),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
+        ),
+
+        // 텍스트 위계(Typography Scale) 설정
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B), letterSpacing: -0.8),
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B), letterSpacing: -0.5),
+          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B), letterSpacing: -0.3),
+          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.normal, color: Color(0xFF374151), height: 1.5),
+          bodyMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.normal, color: Color(0xFF6B7280)),
+        ),
+
+        // 입력 필드(TextField)의 모던한 테두리 양식 통일
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+          ),
+          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+        ),
       ),
-      // StreamBuilder로 Firebase의 로그인 상태를 실시간 감지
-      // main.dart의 MaterialApp 내 home 부분 수정
+      // 💡 여기까지 테마 설정 끝
+
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          // 1. 앱이 로그인 상태를 확인하는 동안(초기 구동) Splash 화면 노출
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SplashScreen(); // 수정된 부분
+            return const SplashScreen();
           }
-
-          // 2. 로그인된 유저 정보 존재 시 메인 화면 이동
           if (snapshot.hasData) {
             return const MainNavigationScreen();
           }
-
-          // 3. 로그아웃 상태 시 로그인 화면 표시
           return const LoginScreen();
         },
       ),
@@ -82,13 +127,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       const MyPageScreen(),
     ];
 
-    // 💡 화면이 그려진 직후, 프로필 정보가 있는지 확인
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndNavigateProfileSetup();
     });
   }
 
-  // 프로필(학교명) 정보가 없으면 초기 설정 화면을 강제로 모달 띄우기
   Future<void> _checkAndNavigateProfileSetup() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -100,7 +143,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => const ProfileSetupScreen(isEditing: false),
-              fullscreenDialog: true, // 아래에서 위로 올라오는 모달 스타일
+              fullscreenDialog: true,
             ),
           );
         }
@@ -122,6 +165,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF4F46E5),
         unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.white, // 네비게이션 바 배경색 명시
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
