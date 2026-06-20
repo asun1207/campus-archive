@@ -71,14 +71,22 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
 
-  // 5개의 탭 화면 리스트
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const ActivityScreen(),
-    const AiCounselingScreen(),
-    const AnalysisScreen(),
-    const MyPageScreen(),
-  ];
+  // 1. 멤버 변수로 한 번만 정의합니다.
+  // 💡 여기서 _onItemTapped를 사용하려면 getter를 쓰거나 initState에서 초기화해야 하는데,
+  // 더 간단한 방법은 'late' 키워드를 사용하는 것입니다.
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      HomeScreen(onNavigateToTab: _onItemTapped),
+      const ActivityScreen(),
+      const AiCounselingScreen(),
+      const AnalysisScreen(),
+      const MyPageScreen(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -88,6 +96,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 2. build 메서드 안의 중복 정의는 삭제하세요!
     return Scaffold(
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
