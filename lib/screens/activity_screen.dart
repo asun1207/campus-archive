@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'add_activity_screen.dart';
+import 'semester_management_screen.dart'; // 학기 관리 화면 import
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -11,22 +12,48 @@ class ActivityScreen extends StatefulWidget {
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
-  // 앱 메인 컬러 적용
   final Color primaryIndigo = const Color(0xFF4F46E5);
-
-  // 가상의 학기 리스트 (추후 Firestore에서 동적으로 불러오도록 확장 가능)
-  final List<String> _semesters = ['2026-1학기', '2025-2학기', '2025-1학기', '2024-2학기'];
-  String _selectedSemester = '2026-1학기';
-
-  // 현재 로그인한 유저 정보
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
-  // 플로팅 액션 버튼이나 상단 + 버튼에서 호출할 등록 화면 이동 함수 (임시 빈 함수)
+  String? _selectedSemester;
+  bool _isInitializing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndCreateDefaultSemester();
+  }
+
+  // --- 최초 로그인 시 (또는 학기가 0개일 때) 기본 학기 자동 생성 ---
+  Future<void> _checkAndCreateDefaultSemester() async {
+    if (currentUser == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('semesters')
+          .where('userId', isEqualTo: currentUser!.uid)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        final year = DateTime.now().year;
+        final term = DateTime.now().month <= 6 ? '1' : '2';
+        final defaultName = '$year-$term학기';
+
+        await FirebaseFirestore.instance.collection('semesters').add({
+          'userId': currentUser!.uid,
+          'name': defaultName,
+          'order': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      debugPrint('기본 학기 생성 오류: $e');
+    } finally {
+      if (mounted) setState(() => _isInitializing = false);
+    }
+  }
+
   void _navigateToAddActivity() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddActivityScreen()),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const AddActivityScreen()));
   }
 
   @override
@@ -36,53 +63,99 @@ class _ActivityScreenState extends State<ActivityScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          '활동 기록',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('활동 기록', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(
-            icon: Icon(Icons.add, color: primaryIndigo, size: 28),
-            onPressed: _navigateToAddActivity,
-          ),
+          IconButton(icon: Icon(Icons.add, color: primaryIndigo, size: 28), onPressed: _navigateToAddActivity),
         ],
       ),
-      body: Column(
-        children: [
-          // 1. 학기 탭 (가로 스크롤)
-          _buildSemesterTabs(),
+      body: _isInitializing
+          ? Center(child: CircularProgressIndicator(color: primaryIndigo))
+          : _buildSemesterStream(), // 학기 데이터 스트림 렌더링
+    );
+  }
 
-          // 2. 활동 리스트 영역 (실시간 Firestore 연동)
-          Expanded(
-            child: _buildActivityStream(),
-          ),
+  // --- 1. 학기 데이터 실시간 스트림 ---
+  Widget _buildSemesterStream() {
+    if (currentUser == null) return const Center(child: Text('로그인이 필요합니다.'));
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('semesters')
+          .where('userId', isEqualTo: currentUser!.uid)
+          .orderBy('order')
+          .snapshots(),
+      builder: (context, semesterSnapshot) {
+        if (semesterSnapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator(color: primaryIndigo));
+        }
+
+        final semesterDocs = semesterSnapshot.data?.docs ?? [];
+
+        // 학기가 하나도 없을 때 (사용자가 다 지웠을 때)
+        if (semesterDocs.isEmpty) {
+          return _buildNoSemesterState();
+        }
+
+        final semesterNames = semesterDocs.map((doc) => doc['name'] as String).toList();
+
+        // 현재 선택된 학기가 목록에 없으면(삭제됐거나 최초 진입 시) 첫 번째 학기로 갱신
+        if (_selectedSemester == null || !semesterNames.contains(_selectedSemester)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedSemester = semesterNames.first);
+          });
+          return const SizedBox(); // 갱신 전 찰나의 순간 빈 화면
+        }
+
+        return Column(
+          children: [
+            _buildSemesterTabs(semesterNames),
+            Expanded(child: _buildActivityStream()), // 해당 학기의 활동 데이터 불러오기
+          ],
+        );
+      },
+    );
+  }
+
+  // --- UI 컴포넌트: 학기가 없을 때 ---
+  Widget _buildNoSemesterState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.school_outlined, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text('학기를 먼저 추가해주세요', style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SemesterManagementScreen())),
+            icon: const Icon(Icons.settings),
+            label: const Text('학기 관리로 이동'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryIndigo, foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          )
         ],
       ),
     );
   }
 
-  // --- UI 컴포넌트: 학기 탭 ---
-  Widget _buildSemesterTabs() {
+  // --- UI 컴포넌트: 학기 가로 스크롤 탭 ---
+  Widget _buildSemesterTabs(List<String> semesters) {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _semesters.length,
+        itemCount: semesters.length,
         itemBuilder: (context, index) {
-          final semester = _semesters[index];
+          final semester = semesters[index];
           final isSelected = semester == _selectedSemester;
 
           return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedSemester = semester;
-              });
-            },
+            onTap: () => setState(() => _selectedSemester = semester),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -106,36 +179,22 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  // --- 데이터 패칭: Firestore 실시간 스트림 ---
+  // --- 2. 해당 학기의 활동 데이터 스트림 (기존 로직과 동일) ---
   Widget _buildActivityStream() {
-    if (currentUser == null) {
-      return const Center(child: Text('로그인이 필요합니다.'));
-    }
+    if (_selectedSemester == null) return const SizedBox();
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('activities')
           .where('userId', isEqualTo: currentUser!.uid)
-          .where('semester', isEqualTo: _selectedSemester)
+          .where('semester', isEqualTo: _selectedSemester) // 동적 학기 필터링!
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator(color: primaryIndigo));
-        }
-
-        if (snapshot.hasError) {
-          return Center(child: Text('데이터를 불러오는 중 오류가 발생했습니다.\n${snapshot.error}'));
-        }
-
+        if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator(color: primaryIndigo));
         final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) return _buildEmptyState();
 
-        // 데이터가 아예 없을 때의 빈 상태(Empty State) UI
-        if (docs.isEmpty) {
-          return _buildEmptyState();
-        }
-
-        // 카테고리별로 데이터 분류
         final classActivities = docs.where((doc) => doc['category'] == '수강 과목').toList();
         final schoolActivities = docs.where((doc) => doc['category'] == '교내 활동').toList();
         final outsideActivities = docs.where((doc) => doc['category'] == '대외 활동').toList();
@@ -143,19 +202,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (classActivities.isNotEmpty)
-              _buildCategorySection('📚 수강 과목', classActivities),
-            if (schoolActivities.isNotEmpty)
-              _buildCategorySection('🏫 교내 활동', schoolActivities),
-            if (outsideActivities.isNotEmpty)
-              _buildCategorySection('🌐 대외 활동', outsideActivities),
+            if (classActivities.isNotEmpty) _buildCategorySection('📚 수강 과목', classActivities),
+            if (schoolActivities.isNotEmpty) _buildCategorySection('🏫 교내 활동', schoolActivities),
+            if (outsideActivities.isNotEmpty) _buildCategorySection('🌐 대외 활동', outsideActivities),
           ],
         );
       },
     );
   }
 
-  // --- UI 컴포넌트: 빈 상태 (Empty State) ---
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -163,22 +218,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
         children: [
           Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            '아직 기록이 없어요',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500),
-          ),
+          Text('아직 기록이 없어요', style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500)),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _navigateToAddActivity,
             icon: const Icon(Icons.edit),
             label: const Text('기록 추가하기'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryIndigo,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              backgroundColor: primaryIndigo, foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           )
         ],
@@ -186,127 +234,66 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  // --- UI 컴포넌트: 카테고리별 섹션 ---
   Widget _buildCategorySection(String title, List<QueryDocumentSnapshot> activities) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 카테고리 타이틀 및 개수
           Padding(
             padding: const EdgeInsets.only(bottom: 12, left: 4),
             child: Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: primaryIndigo.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${activities.length}',
-                    style: TextStyle(
-                      color: primaryIndigo,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
+                  decoration: BoxDecoration(color: primaryIndigo.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Text('${activities.length}', style: TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ],
             ),
           ),
-
-          // 활동 카드 리스트
           ...activities.map((doc) => _buildActivityCard(doc)).toList(),
         ],
       ),
     );
   }
 
-  // --- UI 컴포넌트: 활동 기록 카드 ---
   Widget _buildActivityCard(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final title = data['title'] ?? '제목 없음';
-    final date = data['date'] ?? '';
-    final List<dynamic> tags = data['tags'] ?? [];
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
       color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddActivityScreen(activityDoc: doc),
-            ),
-          );
+          Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(activityDoc: doc)));
         },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 카드 제목
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
+              Text(data['title'] ?? '제목 없음', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
               const SizedBox(height: 12),
-
-              // 태그 (Wrap을 사용하여 줄바꿈 자연스럽게 처리)
-              if (tags.isNotEmpty) ...[
+              if ((data['tags'] ?? []).isNotEmpty) ...[
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: tags.map((tag) {
-                    return Chip(
-                      label: Text(
-                        '#$tag',
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
-                      ),
-                      backgroundColor: Colors.grey.shade100,
-                      side: BorderSide.none,
-                      padding: EdgeInsets.zero,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    );
-                  }).toList(),
+                  spacing: 8, runSpacing: 4,
+                  children: (data['tags'] as List).map((tag) => Chip(
+                    label: Text('#$tag', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    backgroundColor: Colors.grey.shade100, side: BorderSide.none, padding: EdgeInsets.zero, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )).toList(),
                 ),
                 const SizedBox(height: 12),
               ],
-
-              // 날짜 표시
               Row(
                 children: [
                   Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey.shade500),
                   const SizedBox(width: 4),
-                  Text(
-                    date,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
+                  Text(data['date'] ?? '', style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
                 ],
               ),
             ],

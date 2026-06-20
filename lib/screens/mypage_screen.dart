@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'semester_management_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -188,7 +189,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('알림 설정 페이지로 이동합니다.')));
             }),
             _buildMenuTile(Icons.school_outlined, '학기 관리', () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('학기 관리 페이지로 이동합니다.')));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SemesterManagementScreen()));
             }),
             _buildMenuTile(Icons.info_outline, '공지사항', () => _showDialog(context, '공지사항', '현재 등록된 공지사항이 없습니다.')),
             _buildMenuTile(Icons.apps, '앱 정보', () => _showDialog(context, '앱 정보', 'Campus Archive v1.0.0\n최신 버전입니다.')),

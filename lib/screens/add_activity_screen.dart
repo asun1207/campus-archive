@@ -17,43 +17,63 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   final Color primaryIndigo = const Color(0xFF4F46E5);
   final _formKey = GlobalKey<FormState>();
 
-  // 입력 컨트롤러
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
 
-  // 상태 변수
-  String _selectedSemester = '2026-1학기';
+  String? _selectedSemester; // null 허용으로 변경
   String _selectedCategory = '수강 과목';
   DateTime _selectedDate = DateTime.now();
   List<String> _tags = [];
   bool _isLoading = false;
+  bool _isLoadingSemesters = true; // 학기 로딩 상태 추가
 
-  // 드롭다운 항목
-  final List<String> _semesters = ['2026-1학기', '2025-2학기', '2025-1학기', '2024-2학기'];
+  List<String> _semesters = []; // 하드코딩 리스트 삭제, 빈 배열로 시작
   final List<String> _categories = ['수강 과목', '교내 활동', '대외 활동'];
 
   @override
   void initState() {
     super.initState();
+    _loadDynamicSemesters(); // Firestore에서 학기 목록 불러오기 실행
+  }
 
-    // 💡 전달받은 데이터가 있다면 (수정 모드) 기존 값으로 미리 채우기
-    if (widget.activityDoc != null) {
-      final data = widget.activityDoc!.data() as Map<String, dynamic>;
+  // --- Firestore에서 현재 유저의 학기 목록 불러오기 ---
+  Future<void> _loadDynamicSemesters() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('semesters')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('order')
+          .get();
 
-      _titleController.text = data['title'] ?? '';
-      _contentController.text = data['content'] ?? '';
-      _selectedSemester = data['semester'] ?? '2026-1학기';
-      _selectedCategory = data['category'] ?? '수강 과목';
+      if (mounted) {
+        setState(() {
+          _semesters = snapshot.docs.map((doc) => doc['name'] as String).toList();
+          if (_semesters.isEmpty) _semesters = ['기본 학기']; // 혹시 다 지웠을 때를 대비한 맹점 처리
 
-      if (data['date'] != null) {
-        _selectedDate = DateFormat('yyyy-MM-dd').parse(data['date']);
-      }
-      if (data['tags'] != null) {
-        _tags = List<String>.from(data['tags']);
+          // 1. 수정 모드일 경우 기존 데이터로 초기값 세팅
+          if (widget.activityDoc != null) {
+            final data = widget.activityDoc!.data() as Map<String, dynamic>;
+            _titleController.text = data['title'] ?? '';
+            _contentController.text = data['content'] ?? '';
+            _selectedCategory = data['category'] ?? '수강 과목';
+            _selectedSemester = data['semester'];
+
+            if (data['date'] != null) _selectedDate = DateFormat('yyyy-MM-dd').parse(data['date']);
+            if (data['tags'] != null) _tags = List<String>.from(data['tags']);
+          }
+
+          // 2. _selectedSemester가 비어있거나, 삭제된 학기라면 첫 번째 학기로 강제 세팅
+          if (_selectedSemester == null || !_semesters.contains(_selectedSemester)) {
+            _selectedSemester = _semesters.first;
+          }
+
+          _isLoadingSemesters = false;
+        });
       }
     }
-  }
+  } // 👈 누락되었던 닫는 중괄호 추가 완료!
 
   @override
   void dispose() {
@@ -84,7 +104,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     }
   }
 
-// --- 태그 추가 ---
+  // --- 태그 추가 ---
   void _addTag(String tag) {
     // 💡 핵심: .toUpperCase()를 추가하여 무조건 대문자로 변환
     String normalizedTag = tag.trim().toUpperCase();
@@ -191,13 +211,11 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
-        // 요구사항: 앱바 타이틀 동적 변경
         title: Text(
           isEditing ? '활동 수정' : '활동 등록',
           style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          // 요구사항: 수정 모드일 때만 우측 상단에 삭제 버튼 표시
           if (isEditing)
             TextButton.icon(
               onPressed: _isLoading ? null : _deleteActivity,
@@ -206,7 +224,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
+      // 👈 누락되었던 로딩 인디케이터 체크 로직 추가 완료!
+      body: _isLoadingSemesters
+          ? Center(child: CircularProgressIndicator(color: primaryIndigo))
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
@@ -300,7 +321,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
               ),
               const SizedBox(height: 40),
 
-              // 요구사항: 하단 버튼을 모드에 따라 다르게 표시
+              // 하단 버튼
               SizedBox(
                 width: double.infinity,
                 height: 56,
