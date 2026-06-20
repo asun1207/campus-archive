@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'add_activity_screen.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -22,8 +23,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   // 플로팅 액션 버튼이나 상단 + 버튼에서 호출할 등록 화면 이동 함수 (임시 빈 함수)
   void _navigateToAddActivity() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('활동 등록 화면으로 이동합니다. (구현 예정)')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddActivityScreen()),
     );
   }
 
