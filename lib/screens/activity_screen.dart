@@ -251,9 +251,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          // TODO: 상세 및 수정 화면으로 이동
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('[$title] 상세 화면으로 이동합니다.')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddActivityScreen(activityDoc: doc),
+            ),
           );
         },
         child: Padding(

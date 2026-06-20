@@ -80,7 +80,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           // 태그 집계
           final List<dynamic> tags = data['tags'] ?? [];
           for (var tag in tags) {
-            final tagStr = tag.toString();
+            // 💡 핵심: 기존 DB에 있는 소문자 태그들도 차트를 그릴 땐 대문자로 묶어서 계산
+            final tagStr = tag.toString().toUpperCase();
             tagCounts[tagStr] = (tagCounts[tagStr] ?? 0) + 1;
           }
         }

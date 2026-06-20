@@ -83,7 +83,7 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
     });
   }
 
-  // 태그 매칭 기반 적합도 계산 함수
+// 태그 매칭 기반 적합도 계산 함수
   List<Map<String, dynamic>> _calculateRecommendations() {
     List<Map<String, dynamic>> results = [];
 
@@ -92,7 +92,9 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
       List<String> keywords = job['keywords'];
 
       for (var tag in _userTags) {
-        if (keywords.any((k) => tag.contains(k) || k.contains(tag))) {
+        // 💡 핵심: DB 태그와 하드코딩된 키워드를 모두 대문자로 바꾼 상태에서 비교
+        String upperTag = tag.toUpperCase();
+        if (keywords.any((k) => upperTag.contains(k.toUpperCase()) || k.toUpperCase().contains(upperTag))) {
           matchCount++;
         }
       }

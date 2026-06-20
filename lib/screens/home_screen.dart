@@ -274,9 +274,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          // 활동 기록 탭으로 완전히 넘어가려면 상태 관리가 필요하므로 일단 스낵바로 처리
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('[$title] 상세 보기 (개발 예정)')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddActivityScreen(activityDoc: doc),
+            ),
           );
         },
         child: Padding(
