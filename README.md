@@ -134,9 +134,13 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## 📸 실행 화면
 
-| 홈 | 활동 기록 | 역량 분석 | AI 상담 | 마이페이지 |
-|------|------|------|------|------|
-| ![홈](screenshots/home.png) | ![활동기록](screenshots/activity.png) | ![역량분석](screenshots/analysis.png) | ![AI상담](screenshots/ai_chat.png) | ![마이페이지](screenshots/mypage.png) |
+| 홈 | 활동 기록 | 역량 분석 |
+|------|------|------|
+| ![홈](screenshots/home.png) | ![활동기록](screenshots/activity.png) | ![역량분석](screenshots/analysis.png) |
+
+| AI 상담 | 마이페이지 |
+|------|------|
+| ![AI상담](screenshots/ai_chat.png) | ![마이페이지](screenshots/mypage.png) |
 
 ---
 
