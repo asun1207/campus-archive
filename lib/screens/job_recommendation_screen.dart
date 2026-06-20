@@ -17,8 +17,7 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
   bool _isLoading = true;
   List<String> _userTags = [];
 
-  // TODO: 실제 배포 시 AI API(Claude/Gemini)로 정교한 분석 로직 교체 예정
-  // 현재는 하드코딩된 매핑 테이블 사용
+  // 매핑 테이블
   final List<Map<String, dynamic>> _jobMappings = [
     {
       'jobTitle': '서비스 기획자 / PM',
@@ -34,7 +33,7 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
     },
     {
       'jobTitle': '소프트웨어 개발자',
-      'keywords': ['프로그래밍', '개발', '알고리즘', '협업'],
+      'keywords': ['PROGRAMMING', '개발', '알고리즘', '협업'],
       'reason': '코드로 결과물을 만들어내는 프로그래밍 역량과 기술적 사고가 일치합니다.',
       'lacking': ['시스템아키텍처', '보안지식']
     },
@@ -55,12 +54,9 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
   Future<void> _fetchData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // 💡 테스트를 위해 강제로 false(미구독) 설정. true로 바꾸면 추천 결과 확인 가능!
-    await prefs.setBool('isSubscribed', true);
-
+    // 💡 핵심: 기존에 있던 false/true 하드코딩 대입 코드를 완전히 삭제하고 실제 값만 꺼내옵니다.
     _isSubscribed = prefs.getBool('isSubscribed') ?? false;
 
-    // 사용자 Firestore 활동 데이터에서 태그 가져오기
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final snapshot = await FirebaseFirestore.instance
@@ -72,7 +68,7 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
       for (var doc in snapshot.docs) {
         final docTags = doc['tags'] ?? [];
         for (var t in docTags) {
-          tags.add(t.toString());
+          tags.add(t.toString().toUpperCase()); // 대문자로 정규화하여 저장된 태그 가져오기
         }
       }
       _userTags = tags.toList();
@@ -83,7 +79,6 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
     });
   }
 
-// 태그 매칭 기반 적합도 계산 함수
   List<Map<String, dynamic>> _calculateRecommendations() {
     List<Map<String, dynamic>> results = [];
 
@@ -92,20 +87,17 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
       List<String> keywords = job['keywords'];
 
       for (var tag in _userTags) {
-        // 💡 핵심: DB 태그와 하드코딩된 키워드를 모두 대문자로 바꾼 상태에서 비교
         String upperTag = tag.toUpperCase();
         if (keywords.any((k) => upperTag.contains(k.toUpperCase()) || k.toUpperCase().contains(upperTag))) {
           matchCount++;
         }
       }
 
-      // 기본 점수 40% + 매칭된 키워드당 15% (최대 98%)
       int score = 40 + (matchCount * 15);
       if (score > 98) score = 98;
 
-      // 사용자 태그가 아예 없으면 기본 30~45% 사이로 랜덤하게 보이도록 임시 처리
       if (_userTags.isEmpty) {
-        score = 30 + (job['jobTitle'].toString().length * 2);
+        score = 30 + (job['jobTitle'].toString().length * 2); // 💡 num타입 에러 방지용 수정한 코드 유지
       }
 
       results.add({
@@ -114,7 +106,6 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
       });
     }
 
-    // 적합도(score) 기준 내림차순 정렬
     results.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
     return results;
   }
@@ -136,20 +127,15 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
           ? Center(child: CircularProgressIndicator(color: primaryIndigo))
           : Stack(
         children: [
-          // 배경: 실제 추천 리스트 (미구독 상태여도 밑바탕에 그려놓고 블러 처리)
           _buildRecommendationList(),
-
-          // 미구독 시: 블러 오버레이 덮기
           if (!_isSubscribed) _buildLockedOverlay(),
         ],
       ),
     );
   }
 
-  // 1. 추천 결과 리스트 UI
   Widget _buildRecommendationList() {
     final recommendations = _calculateRecommendations();
-
     return Column(
       children: [
         Expanded(
@@ -162,7 +148,6 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
             },
           ),
         ),
-        // 하단 안내 문구
         Container(
           padding: const EdgeInsets.symmetric(vertical: 20),
           width: double.infinity,
@@ -177,67 +162,32 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
     );
   }
 
-  // 2. 개별 직무 카드 UI
   Widget _buildJobCard(Map<String, dynamic> job) {
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 직무명 및 일치율
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  job['jobTitle'],
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+                Text(job['jobTitle'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: primaryIndigo.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '적합도 ${job['score']}%',
-                    style: TextStyle(
-                      color: primaryIndigo,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
+                  decoration: BoxDecoration(color: primaryIndigo.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Text('적합도 ${job['score']}%', style: TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-
-            // 적합 이유
-            Text(
-              job['reason'],
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.4),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Divider(),
-            ),
-
-            // 부족한 역량
-            const Text(
-              '이런 역량을 더 채우면 완벽해요',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54),
-            ),
+            Text(job['reason'], style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.4)),
+            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+            const Text('이런 역량을 더 채우면 완벽해요', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -258,7 +208,6 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
     );
   }
 
-  // 3. 미구독 잠금 화면 (블러 오버레이) UI
   Widget _buildLockedOverlay() {
     return Positioned.fill(
       child: ClipRect(
@@ -274,18 +223,11 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-                      ),
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
                       child: Icon(Icons.lock_rounded, size: 48, color: primaryIndigo),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
-                      '프리미엄 기능입니다',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
-                    ),
+                    const Text('프리미엄 기능입니다', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
                     const SizedBox(height: 12),
                     const Text(
                       'AI가 당신의 활동 데이터를 심층 분석해\n가장 적합한 직무를 추천해 드려요',
@@ -293,26 +235,10 @@ class _JobRecommendationScreenState extends State<JobRecommendationScreen> {
                       style: TextStyle(fontSize: 15, color: Colors.black87, height: 1.5, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('결제 연동은 다음 단계에서 진행됩니다.')),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryIndigo,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          '월 4,900원으로 시작하기',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
+                    const Text(
+                      "💡 마이페이지 탭에서 무료 플랜을\n프리미엄으로 업그레이드할 수 있습니다.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.indigo, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
