@@ -9,6 +9,8 @@ import 'screens/analysis_screen.dart';
 import 'screens/mypage_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_view.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'screens/profile_setup_screen.dart';
 
 void main() async {
   // Flutter 엔진 초기화 보장
@@ -67,10 +69,6 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
-
-  // 1. 멤버 변수로 한 번만 정의합니다.
-  // 💡 여기서 _onItemTapped를 사용하려면 getter를 쓰거나 initState에서 초기화해야 하는데,
-  // 더 간단한 방법은 'late' 키워드를 사용하는 것입니다.
   late final List<Widget> _screens;
 
   @override
@@ -83,6 +81,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       const AnalysisScreen(),
       const MyPageScreen(),
     ];
+
+    // 💡 화면이 그려진 직후, 프로필 정보가 있는지 확인
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndNavigateProfileSetup();
+    });
+  }
+
+  // 프로필(학교명) 정보가 없으면 초기 설정 화면을 강제로 모달 띄우기
+  Future<void> _checkAndNavigateProfileSetup() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (!doc.exists || doc.data()?['school'] == null || doc.data()?['school'] == '') {
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ProfileSetupScreen(isEditing: false),
+              fullscreenDialog: true, // 아래에서 위로 올라오는 모달 스타일
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _onItemTapped(int index) {
@@ -93,12 +116,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 2. build 메서드 안의 중복 정의는 삭제하세요!
     return Scaffold(
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // 4개 이상의 탭일 때 고정
-        selectedItemColor: const Color(0xFF4F46E5), // 선택된 아이템 메인 컬러
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF4F46E5),
         unselectedItemColor: Colors.grey,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
