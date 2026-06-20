@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'job_recommendation_screen.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -114,6 +115,34 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               const SizedBox(height: 32),
               _buildCategoryBarChart(subjectCount, schoolCount, outsideCount),
               const SizedBox(height: 40),
+
+              // "AI 직무 추천 보기" 버튼 추가
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const JobRecommendationScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.work_outline_rounded),
+                  label: const Text(
+                    'AI 직무 추천 보기',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryIndigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         );
@@ -280,7 +309,26 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
           maxY: maxY,
-          barTouchData: BarTouchData(enabled: false), // 터치 효과 비활성화 (깔끔한 UI용)
+          barTouchData: BarTouchData(
+            enabled: false, // 터치 효과 비활성화 (깔끔한 UI용)
+            touchTooltipData: BarTouchTooltipData(
+              // 1. 툴팁 배경색 변경 (투명하게 설정)
+              getTooltipColor: (group) => Colors.transparent,
+              tooltipPadding: EdgeInsets.zero, // 기본 패딩 제거
+              tooltipMargin: 8, // 막대와의 간격 설정
+              // 2. 툴팁 안의 텍스트 스타일 변경
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                return BarTooltipItem(
+                  rod.toY.toInt().toString(),
+                  TextStyle(
+                    color: primaryIndigo, // 배경을 투명하게 뺐으므로 글자색을 메인 컬러로 변경
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                );
+              },
+            ),
+          ),
           titlesData: FlTitlesData(
             show: true,
             // X축 (하단) 라벨
