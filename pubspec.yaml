@@ -54,6 +54,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -103,3 +105,25 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+  adaptive_icon_background: "#4F46E5"
+  adaptive_icon_foreground: "assets/icon.png"
+
+
+flutter_native_splash:
+  color: "#4F46E5"
+#  image: assets/icon.png
+#
+#  # 안드로이드 설정
+#  android_gravity: center
+#
+#  # iOS 설정
+#  ios_content_mode: center
+
+  # 슬로건은 로고 이미지 파일 하단에 직접 그려 넣은 PNG를 사용하는 것이 좋습니다.
+  # (flutter_native_splash는 단순 이미지와 배경색 위주로 동작하기 때문입니다.)
+  fullscreen: true

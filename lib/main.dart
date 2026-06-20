@@ -8,6 +8,7 @@ import 'screens/ai_counseling_screen.dart';
 import 'screens/analysis_screen.dart';
 import 'screens/mypage_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_view.dart';
 
 void main() async {
   // Flutter 엔진 초기화 보장
@@ -35,25 +36,21 @@ class CampusArchiveApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // StreamBuilder로 Firebase의 로그인 상태를 실시간 감지
+      // main.dart의 MaterialApp 내 home 부분 수정
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          // 1. 앱이 로그인 상태를 확인하는 동안 보여줄 로딩 화면
+          // 1. 앱이 로그인 상태를 확인하는 동안(초기 구동) Splash 화면 노출
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              backgroundColor: Color(0xFF4F46E5),
-              body: Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-            );
+            return const SplashScreen(); // 수정된 부분
           }
 
-          // 2. 로그인된 유저 정보가 존재하면(로그인 성공/유지) 메인 탭 화면으로 자동 이동
+          // 2. 로그인된 유저 정보 존재 시 메인 화면 이동
           if (snapshot.hasData) {
             return const MainNavigationScreen();
           }
 
-          // 3. 유저 정보가 없으면(로그아웃 상태/최초 접속) 온보딩 화면 표시
+          // 3. 로그아웃 상태 시 로그인 화면 표시
           return const LoginScreen();
         },
       ),
