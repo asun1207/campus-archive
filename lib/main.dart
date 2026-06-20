@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-// firebase_options.dart는 flutterfire cli를 통해 생성해야 합니다.
+import 'package:firebase_auth/firebase_auth.dart'; // 추가: Firebase Auth 패키지
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/activity_screen.dart';
 import 'screens/ai_counseling_screen.dart';
 import 'screens/analysis_screen.dart';
 import 'screens/mypage_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() async {
   // Flutter 엔진 초기화 보장
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase 초기화 (실제 실행 시 firebase_options.dart 필요)
+  // Firebase 초기화
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -33,7 +34,29 @@ class CampusArchiveApp extends StatelessWidget {
         primaryColor: const Color(0xFF4F46E5),
         useMaterial3: true,
       ),
-      home: const MainNavigationScreen(),
+      // StreamBuilder로 Firebase의 로그인 상태를 실시간 감지
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // 1. 앱이 로그인 상태를 확인하는 동안 보여줄 로딩 화면
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: Color(0xFF4F46E5),
+              body: Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            );
+          }
+
+          // 2. 로그인된 유저 정보가 존재하면(로그인 성공/유지) 메인 탭 화면으로 자동 이동
+          if (snapshot.hasData) {
+            return const MainNavigationScreen();
+          }
+
+          // 3. 유저 정보가 없으면(로그아웃 상태/최초 접속) 온보딩 화면 표시
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
