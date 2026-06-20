@@ -23,7 +23,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
   String? _selectedSemester; // null 허용으로 변경
   String _selectedCategory = '수강 과목';
-  DateTime _selectedDate = DateTime.now();
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now();
   List<String> _tags = [];
   bool _isLoading = false;
   bool _isLoadingSemesters = true; // 학기 로딩 상태 추가
@@ -60,7 +61,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             _selectedCategory = data['category'] ?? '수강 과목';
             _selectedSemester = data['semester'];
 
-            if (data['date'] != null) _selectedDate = DateFormat('yyyy-MM-dd').parse(data['date']);
+            _startDate = DateFormat('yyyy-MM-dd').parse(data['startDate'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()));
+            _endDate = DateFormat('yyyy-MM-dd').parse(data['endDate'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()));
             if (data['tags'] != null) _tags = List<String>.from(data['tags']);
           }
 
@@ -84,23 +86,22 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   }
 
   // --- 날짜 선택기 ---
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDateRange(BuildContext context) async {
+    final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: primaryIndigo),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: primaryIndigo)),
+        child: child!,
+      ),
     );
-    if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
     }
   }
 
@@ -141,7 +142,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         'category': _selectedCategory,
         'title': _titleController.text,
         'content': _contentController.text,
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+        'startDate': DateFormat('yyyy-MM-dd').format(_startDate),
+        'endDate': DateFormat('yyyy-MM-dd').format(_endDate),
         'tags': _tags,
         // 수정 모드면 기존 생성시간 유지, 등록 모드면 서버 시간 새로 생성
         'createdAt': widget.activityDoc != null
@@ -268,14 +270,17 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
               // 3. 날짜
               InkWell(
-                onTap: () => _selectDate(context),
+                onTap: () => _selectDateRange(context),
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: '활동 날짜', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: '활동 기간', border: OutlineInputBorder()),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(DateFormat('yyyy년 MM월 dd일').format(_selectedDate)),
-                      Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 20),
+                      Text(
+                        '${DateFormat('yyyy.MM.dd').format(_startDate)} ~ ${DateFormat('yyyy.MM.dd').format(_endDate)}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      Icon(Icons.date_range, color: primaryIndigo, size: 20),
                     ],
                   ),
                 ),
